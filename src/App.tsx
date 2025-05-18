@@ -87,44 +87,165 @@
 // export default App;
 
 //Expense App
-import { useState } from 'react';
-import ExpenseList from './expense-tracker/components/ExpenseList';
-import ExpenseFilter from './expense-tracker/components/ExpenseFilter';
-import ExpenseForm from './expense-tracker/components/ExpenseForm';
-import categories from './expense-tracker/categories';
+// import { useState } from 'react';
+// import ExpenseList from './expense-tracker/components/ExpenseList';
+// import ExpenseFilter from './expense-tracker/components/ExpenseFilter';
+// import ExpenseForm from './expense-tracker/components/ExpenseForm';
+// import categories from './expense-tracker/categories';
 
+// function App() {
+//   const [expenses, setExpenses] = useState([
+//     { id: 1, description: 'aaa', amount: 10, category: 'Utilities' },
+//     { id: 2, description: 'bbb', amount: 10, category: 'Utilities' },
+//     { id: 3, description: 'ccc', amount: 10, category: 'Utilities' },
+//     { id: 4, description: 'ddd', amount: 10, category: 'Utilities' },
+//   ]);
+
+//   const [selectedCategory, setSelectedCategory] = useState('');
+
+//   const visibleExpenses = selectedCategory
+//     ? expenses.filter((e) => e.category === selectedCategory)
+//     : expenses;
+
+//   return (
+//     <div>
+//       <div className="mb-5">
+//         <ExpenseForm
+//           onSubmit={(expense) =>
+//             setExpenses([...expenses, { ...expense, id: expenses.length + 1 }])
+//           }
+//         />
+//       </div>
+//       <div className="mb-3">
+//         <ExpenseFilter
+//           onSelectCategory={(category) => setSelectedCategory(category)}
+//         />
+//       </div>
+//       <ExpenseList
+//         expenses={visibleExpenses}
+//         onDelete={(id) => setExpenses(expenses.filter((e) => e.id !== id))}
+//       />
+//     </div>
+//   );
+// }
+
+//use Effect
+
+// import { useEffect, useRef, useState } from 'react';
+// import ProductList from './expense-tracker/components/ProductList';
+
+// function App() {
+//   const ref = useRef<HTMLInputElement>(null);
+
+//   const [category, setCartegory] = useState('');
+
+//   return (
+//     <div>
+//       <select
+//         className="form-select"
+//         onChange={(event) => setCartegory(event.target.value)}
+//       >
+//         <option value=""></option>
+//         <option value="Clothing">Clothing</option>
+//         <option value="Household">Household</option>
+//       </select>
+//       <ProductList category={category} />
+//     </div>
+//   );
+// }
+
+// export default App;
+
+//clean up
+// import { useEffect } from 'react';
+// const connect = () => console.log('connecting');
+// const disconnected = () => console.log('Disconnecting');
+// function App() {
+//   useEffect(() => {
+//     connect();
+//     return () => disconnected();
+//   });
+//   return <div></div>;
+// }
+
+// export default App;
+
+import { useState, useEffect } from 'react';
+import axios, { CanceledError } from 'axios';
+interface User {
+  id: number;
+  name: string;
+}
 function App() {
-  const [expenses, setExpenses] = useState([
-    { id: 1, description: 'aaa', amount: 10, category: 'Utilities' },
-    { id: 2, description: 'bbb', amount: 10, category: 'Utilities' },
-    { id: 3, description: 'ccc', amount: 10, category: 'Utilities' },
-    { id: 4, description: 'ddd', amount: 10, category: 'Utilities' },
-  ]);
-
-  const [selectedCategory, setSelectedCategory] = useState('');
-
-  const visibleExpenses = selectedCategory
-    ? expenses.filter((e) => e.category === selectedCategory)
-    : expenses;
+  const [users, setUsers] = useState<User[]>([]);
+  const [error, setError] = useState<string | null>('');
+  const [isLoading, setLoading] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    axios
+      .get<User[]>('https://jsonplaceholder.typicode.com/users', {
+        signal: controller.signal,
+      })
+      .then((res) => {
+        setUsers(res.data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (err instanceof CanceledError) return;
+        setError(err.message);
+        setLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
+  const deleteUser = (user: User) => () => {
+    const originalUsers = [...users];
+    setUsers(users.filter((u) => u.id !== user.id));
+    axios
+      .delete(`https://jsonplaceholder.typicode.com/users/${user.id}`)
+      .catch((err) => {
+        setError(err.message);
+        setUsers(originalUsers);
+      });
+  };
+  const addUser = () => {
+    const originalUsers = [...users];
+    const newUser = { id: 0, name: 'John' };
+    setUsers([newUser, ...users]);
+    axios
+      .post('https://jsonplaceholder.typicode.com/users', newUser)
+      .then(({ data: savedUser }) => {
+        setUsers([savedUser, ...users]);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setUsers(originalUsers);
+      });
+  };
 
   return (
     <div>
-      <div className="mb-5">
-        <ExpenseForm
-          onSubmit={(expense) =>
-            setExpenses([...expenses, { ...expense, id: expenses.length + 1 }])
-          }
-        />
-      </div>
-      <div className="mb-3">
-        <ExpenseFilter
-          onSelectCategory={(category) => setSelectedCategory(category)}
-        />
-      </div>
-      <ExpenseList
-        expenses={visibleExpenses}
-        onDelete={(id) => setExpenses(expenses.filter((e) => e.id !== id))}
-      />
+      {error && <p className="text-danger">{error}</p>}
+      {isLoading && <div className="spinner-border"></div>}
+      <button className="btn btn-primary mb-3" onClick={addUser}>
+        Add
+      </button>
+      <ul className="list-group">
+        {users.map((user) => (
+          <li
+            key={user.id}
+            className="list-group-item d-flex justify-content-between"
+          >
+            {user.name}
+            <button
+              className="btn btn-outline-danger"
+              onClick={deleteUser(user)}
+            >
+              Delete
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
